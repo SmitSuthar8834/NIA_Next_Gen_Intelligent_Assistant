@@ -106,7 +106,7 @@ export default function LeadsPage() {
                 </CardDescription>
               </div>
               <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm" onClick={refetch}>
+                <Button variant="outline" size="sm" onClick={() => refetch()}>
                   <RefreshCw size={16} className="mr-2" />
                   Refresh
                 </Button>

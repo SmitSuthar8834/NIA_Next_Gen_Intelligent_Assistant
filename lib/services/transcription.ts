@@ -56,7 +56,7 @@ export class BrowserTranscriptionService {
     this.recognition.onend = () => {
       this.isListening = false
       this.onStatusCallback?.('stopped')
-      
+
       // Auto-restart if session is still active
       if (this.session?.status === 'active') {
         setTimeout(() => {
@@ -68,7 +68,7 @@ export class BrowserTranscriptionService {
     this.recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error)
       this.onErrorCallback?.(event.error)
-      
+
       // Handle specific errors
       if (event.error === 'not-allowed') {
         this.onErrorCallback?.('Microphone permission denied')
@@ -258,12 +258,6 @@ export class BrowserTranscriptionService {
 export const transcriptionService = new BrowserTranscriptionService()
 
 // Type declarations for browser APIs
-declare global {
-  interface Window {
-    SpeechRecognition: typeof SpeechRecognition
-    webkitSpeechRecognition: typeof SpeechRecognition
-  }
-}
 
 interface SpeechRecognition extends EventTarget {
   continuous: boolean

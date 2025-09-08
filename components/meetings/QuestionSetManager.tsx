@@ -10,13 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  GripVertical, 
-  Eye, 
-  Save, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  GripVertical,
+  Eye,
+  Save,
   X,
   CheckCircle,
   AlertCircle,
@@ -52,17 +52,17 @@ interface QuestionSetManagerProps {
 
 export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSetManagerProps) {
   const { user, access_token } = useUser()
-  
+
   // Data state
   const [questionSets, setQuestionSets] = useState<QuestionSet[]>([])
   const [selectedQuestionSet, setSelectedQuestionSet] = useState<QuestionSet | null>(null)
-  
+
   // Form state
   const [editingQuestionSet, setEditingQuestionSet] = useState<Partial<QuestionSet> | null>(null)
   const [editingQuestion, setEditingQuestion] = useState<Partial<Question> | null>(null)
   const [newQuestionText, setNewQuestionText] = useState("")
   const [newQuestionType, setNewQuestionType] = useState<Question['question_type']>('open_ended')
-  
+
   // UI state
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -90,7 +90,7 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
       if (response.ok) {
         const data = await response.json()
         setQuestionSets(data)
-        
+
         // Auto-select first question set
         if (data.length > 0 && !selectedQuestionSet) {
           setSelectedQuestionSet(data[0])
@@ -156,7 +156,7 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
 
       if (response.ok) {
         const updatedQuestionSet = await response.json()
-        setQuestionSets(prev => 
+        setQuestionSets(prev =>
           prev.map(qs => qs.id === questionSetId ? updatedQuestionSet : qs)
         )
         if (selectedQuestionSet?.id === questionSetId) {
@@ -221,12 +221,12 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
           questions: [...selectedQuestionSet.questions, newQuestion],
           question_count: selectedQuestionSet.question_count + 1
         }
-        
+
         setSelectedQuestionSet(updatedQuestionSet)
-        setQuestionSets(prev => 
+        setQuestionSets(prev =>
           prev.map(qs => qs.id === selectedQuestionSet.id ? updatedQuestionSet : qs)
         )
-        
+
         setNewQuestionText("")
         setNewQuestionType('open_ended')
         setShowQuestionDialog(false)
@@ -258,13 +258,13 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
         const updatedQuestion = await response.json()
         const updatedQuestionSet = {
           ...selectedQuestionSet,
-          questions: selectedQuestionSet.questions.map(q => 
+          questions: selectedQuestionSet.questions.map(q =>
             q.id === questionId ? updatedQuestion : q
           )
         }
-        
+
         setSelectedQuestionSet(updatedQuestionSet)
-        setQuestionSets(prev => 
+        setQuestionSets(prev =>
           prev.map(qs => qs.id === selectedQuestionSet.id ? updatedQuestionSet : qs)
         )
         setSuccess('Question updated successfully!')
@@ -293,9 +293,9 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
           questions: selectedQuestionSet.questions.filter(q => q.id !== questionId),
           question_count: selectedQuestionSet.question_count - 1
         }
-        
+
         setSelectedQuestionSet(updatedQuestionSet)
-        setQuestionSets(prev => 
+        setQuestionSets(prev =>
           prev.map(qs => qs.id === selectedQuestionSet.id ? updatedQuestionSet : qs)
         )
         setSuccess('Question deleted successfully!')
@@ -335,9 +335,9 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
           ...selectedQuestionSet,
           questions: reorderedQuestions
         }
-        
+
         setSelectedQuestionSet(updatedQuestionSet)
-        setQuestionSets(prev => 
+        setQuestionSets(prev =>
           prev.map(qs => qs.id === selectedQuestionSet.id ? updatedQuestionSet : qs)
         )
       }
@@ -356,7 +356,7 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
 
   const handleDrop = (e: React.DragEvent, targetQuestion: Question) => {
     e.preventDefault()
-    
+
     if (!draggedQuestion || !selectedQuestionSet) return
 
     const questions = [...selectedQuestionSet.questions]
@@ -366,10 +366,10 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
     if (draggedIndex !== -1 && targetIndex !== -1) {
       questions.splice(draggedIndex, 1)
       questions.splice(targetIndex, 0, draggedQuestion)
-      
+
       reorderQuestions(questions)
     }
-    
+
     setDraggedQuestion(null)
   }
 
@@ -502,11 +502,10 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
                 {questionSets.map((questionSet) => (
                   <div
                     key={questionSet.id}
-                    className={`p-3 border rounded-md cursor-pointer transition-colors ${
-                      selectedQuestionSet?.id === questionSet.id
-                        ? 'border-primary bg-primary/5'
-                        : 'hover:bg-muted/50'
-                    }`}
+                    className={`p-3 border rounded-md cursor-pointer transition-colors ${selectedQuestionSet?.id === questionSet.id
+                      ? 'border-primary bg-primary/5'
+                      : 'hover:bg-muted/50'
+                      }`}
                     onClick={() => setSelectedQuestionSet(questionSet)}
                   >
                     <div className="flex items-center justify-between">
@@ -678,7 +677,7 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
                               {index + 1}
                             </span>
                           </div>
-                          
+
                           <div className="flex-1 min-w-0">
                             {editingQuestion?.id === question.id ? (
                               <div className="space-y-2">
@@ -714,11 +713,11 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
                               <>
                                 <p className="text-sm">{question.question_text}</p>
                                 <div className="flex items-center gap-2 mt-1">
-                                  <Badge variant="outline" size="sm">
+                                  <Badge variant="outline">
                                     {question.question_type.replace('_', ' ')}
                                   </Badge>
                                   {!question.is_active && (
-                                    <Badge variant="secondary" size="sm">
+                                    <Badge variant="secondary">
                                       Inactive
                                     </Badge>
                                   )}
@@ -726,7 +725,7 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
                               </>
                             )}
                           </div>
-                          
+
                           <div className="flex gap-1">
                             <Button
                               variant="ghost"
@@ -773,7 +772,7 @@ export default function QuestionSetManager({ onQuestionSetSelected }: QuestionSe
                               </div>
                               <div className="flex-1">
                                 <p className="text-sm font-medium">{question.question_text}</p>
-                                <Badge variant="outline" size="sm" className="mt-1">
+                                <Badge variant="outline" className="mt-1">
                                   {question.question_type.replace('_', ' ')}
                                 </Badge>
                               </div>
