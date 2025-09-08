@@ -1,11 +1,24 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Calendar as UiCalendar } from "@/components/ui/calendar"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Calendar as UiCalendar } from "@/components/ui/calendar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -16,19 +29,27 @@ import {
   Trash2,
   ExternalLink,
   ChevronLeft,
-  ChevronRight
-} from "lucide-react"
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns"
-import { useUser } from "@/hooks/useUser"
-import { ScheduledMeeting } from "@/types/meetings"
+  ChevronRight,
+} from "lucide-react";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameDay,
+  addMonths,
+  subMonths,
+} from "date-fns";
+import { useUser } from "@/hooks/useUser";
+import { ScheduledMeeting } from "@/types/meetings";
 
 interface MeetingCalendarViewProps {
-  meetings?: ScheduledMeeting[]           // optional prop from parent (single source of truth)
-  loading?: boolean                       // optional loading override from parent
-  refreshToken?: number                   // optional token to force refetch when using internal fetch
-  onMeetingSelect?: (meeting: ScheduledMeeting) => void
-  onEditMeeting?: (meeting: ScheduledMeeting) => void
-  onDeleteMeeting?: (meetingId: string) => void
+  meetings?: ScheduledMeeting[]; // optional prop from parent (single source of truth)
+  loading?: boolean; // optional loading override from parent
+  refreshToken?: number; // optional token to force refetch when using internal fetch
+  onMeetingSelect?: (meeting: ScheduledMeeting) => void;
+  onEditMeeting?: (meeting: ScheduledMeeting) => void;
+  onDeleteMeeting?: (meetingId: string) => void;
 }
 
 export default function MeetingCalendarView({
@@ -37,164 +58,176 @@ export default function MeetingCalendarView({
   refreshToken,
   onMeetingSelect,
   onEditMeeting,
-  onDeleteMeeting
+  onDeleteMeeting,
 }: MeetingCalendarViewProps) {
-  const { user, access_token } = useUser()
+  const { user, access_token } = useUser();
+  const router = useRouter();
 
   // Calendar state
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>()
-  const [meetings, setMeetings] = useState<ScheduledMeeting[]>([])
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [meetings, setMeetings] = useState<ScheduledMeeting[]>([]);
 
   // UI state
-  const [loading, setLoading] = useState(false)
-  const [selectedMeeting, setSelectedMeeting] = useState<ScheduledMeeting | null>(null)
-  const [showMeetingDetails, setShowMeetingDetails] = useState(false)
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month')
+  const [loading, setLoading] = useState(false);
+  const [selectedMeeting, setSelectedMeeting] =
+    useState<ScheduledMeeting | null>(null);
+  const [showMeetingDetails, setShowMeetingDetails] = useState(false);
+  const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
 
   // If parent provided loading prop, prefer it
   useEffect(() => {
-    if (typeof incomingLoading === 'boolean') {
-      setLoading(incomingLoading)
+    if (typeof incomingLoading === "boolean") {
+      setLoading(incomingLoading);
     }
-  }, [incomingLoading])
+  }, [incomingLoading]);
 
   // If parent provided meetings prop, use it as authoritative source
   useEffect(() => {
     if (Array.isArray(incomingMeetings)) {
-      setMeetings(incomingMeetings)
-      return
+      setMeetings(incomingMeetings);
+      return;
     }
     // If no incomingMeetings, fetch from API
     // fetchMeetings will run in effect below when currentDate or refreshToken changes
-  }, [incomingMeetings])
+  }, [incomingMeetings]);
 
   // Fetch meetings when currentDate changes or refreshToken changes, only when incomingMeetings not provided
   useEffect(() => {
     if (Array.isArray(incomingMeetings)) {
       // parent controls meetings; don't fetch
-      return
+      return;
     }
-    fetchMeetings()
+    fetchMeetings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate, refreshToken, incomingMeetings])
+  }, [currentDate, refreshToken, incomingMeetings]);
 
   const fetchMeetings = async () => {
-    if (!access_token) return
+    if (!access_token) return;
     try {
-      setLoading(true)
+      setLoading(true);
 
-      const startDate = startOfMonth(currentDate)
-      const endDate = endOfMonth(currentDate)
+      const startDate = startOfMonth(currentDate);
+      const endDate = endOfMonth(currentDate);
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/scheduled-meetings/?` +
-        `start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`,
+          `start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`,
         {
           headers: {
-            'Authorization': `Bearer ${access_token}`
-          }
+            Authorization: `Bearer ${access_token}`,
+          },
         }
-      )
+      );
 
       if (response.ok) {
-        const data = await response.json()
-        const meetingsArray: ScheduledMeeting[] = data.meetings || data || []
-        setMeetings(meetingsArray)
+        const data = await response.json();
+        const meetingsArray: ScheduledMeeting[] = data.meetings || data || [];
+        setMeetings(meetingsArray);
       } else {
-        console.warn('Failed to fetch meetings:', response.status)
+        console.warn("Failed to fetch meetings:", response.status);
       }
     } catch (err) {
-      console.error('Failed to fetch meetings:', err)
+      console.error("Failed to fetch meetings:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const getMeetingsForDate = (date: Date) => {
-    return meetings.filter(meeting =>
+    return meetings.filter((meeting) =>
       isSameDay(new Date(meeting.scheduled_time), date)
-    )
-  }
+    );
+  };
 
-  const getStatusColor = (status: ScheduledMeeting['status']) => {
+  const getStatusColor = (status: ScheduledMeeting["status"]) => {
     switch (status) {
-      case 'scheduled': return 'bg-blue-500'
-      case 'active': return 'bg-green-500'
-      case 'completed': return 'bg-gray-500'
-      case 'cancelled': return 'bg-red-500'
-      default: return 'bg-gray-500'
+      case "scheduled":
+        return "bg-blue-500";
+      case "active":
+        return "bg-green-500";
+      case "completed":
+        return "bg-gray-500";
+      case "cancelled":
+        return "bg-red-500";
+      default:
+        return "bg-gray-500";
     }
-  }
+  };
 
-  const getStatusBadgeVariant = (status: ScheduledMeeting['status']) => {
+  const getStatusBadgeVariant = (status: ScheduledMeeting["status"]) => {
     switch (status) {
-      case 'scheduled': return 'default'
-      case 'active': return 'default'
-      case 'completed': return 'secondary'
-      case 'cancelled': return 'destructive'
-      default: return 'secondary'
+      case "scheduled":
+        return "default";
+      case "active":
+        return "default";
+      case "completed":
+        return "secondary";
+      case "cancelled":
+        return "destructive";
+      default:
+        return "secondary";
     }
-  }
+  };
 
   const handleMeetingClick = (meeting: ScheduledMeeting) => {
-    // open meeting detail page in new tab (existing behavior)
-    window.open(`/meetings/${meeting.id}`, '_blank')
+    // Navigate to meeting detail page in the same tab
+    router.push(`/meetings/${meeting.id}`);
 
+    // Still trigger parent callback if provided (for state management)
     if (onMeetingSelect) {
-      onMeetingSelect(meeting)
-    } else {
-      setSelectedMeeting(meeting)
-      setShowMeetingDetails(true)
+      onMeetingSelect(meeting);
     }
-  }
+  };
 
   const handleJoinMeeting = (meeting: ScheduledMeeting) => {
     // open join link in new tab
     if (meeting.join_link) {
-      window.open(meeting.join_link, '_blank')
+      window.open(meeting.join_link, "_blank");
     } else {
       // fallback behavior: open room path if join_link not set
-      window.open(`/meetings/join/${meeting.meeting_room_id}`, '_blank')
+      window.open(`/meetings/join/${meeting.meeting_room_id}`, "_blank");
     }
-  }
+  };
 
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    setCurrentDate(prev =>
-      direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1)
-    )
-  }
+  const navigateMonth = (direction: "prev" | "next") => {
+    setCurrentDate((prev) =>
+      direction === "prev" ? subMonths(prev, 1) : addMonths(prev, 1)
+    );
+  };
 
   const renderCalendarDay = (date: Date) => {
-    const dayMeetings = getMeetingsForDate(date)
-    const isSelected = selectedDate && isSameDay(date, selectedDate)
+    const dayMeetings = getMeetingsForDate(date);
+    const isSelected = selectedDate && isSameDay(date, selectedDate);
 
     return (
       <div
-        className={`min-h-[100px] p-2 border-r border-b cursor-pointer hover:bg-muted/50 ${isSelected ? 'bg-primary/10' : ''
-          }`}
+        className={`min-h-[100px] p-2 border-r border-b cursor-pointer hover:bg-muted/50 ${
+          isSelected ? "bg-primary/10" : ""
+        }`}
         onClick={() => setSelectedDate(date)}
       >
-        <div className="font-medium text-sm mb-2">
-          {format(date, 'd')}
-        </div>
+        <div className="font-medium text-sm mb-2">{format(date, "d")}</div>
         <div className="space-y-1">
           {dayMeetings.slice(0, 3).map((meeting) => (
             <div
               key={meeting.id}
               className="text-xs p-1 rounded cursor-pointer hover:opacity-80"
-              style={{ backgroundColor: getStatusColor(meeting.status) + '20' }}
+              style={{ backgroundColor: getStatusColor(meeting.status) + "20" }}
               onClick={(e) => {
-                e.stopPropagation()
-                handleMeetingClick(meeting)
+                e.stopPropagation();
+                handleMeetingClick(meeting);
               }}
             >
               <div className="flex items-center gap-1">
                 <div
-                  className={`w-2 h-2 rounded-full ${getStatusColor(meeting.status)}`}
+                  className={`w-2 h-2 rounded-full ${getStatusColor(
+                    meeting.status
+                  )}`}
                 />
                 <span className="truncate">
-                  {format(new Date(meeting.scheduled_time), 'HH:mm')} - {meeting.lead?.name || 'Meeting'}
+                  {format(new Date(meeting.scheduled_time), "HH:mm")} -{" "}
+                  {meeting.lead?.name || "Meeting"}
                 </span>
               </div>
             </div>
@@ -206,28 +239,31 @@ export default function MeetingCalendarView({
           )}
         </div>
       </div>
-    )
-  }
+    );
+  };
 
   const renderMonthView = () => {
-    const monthStart = startOfMonth(currentDate)
-    const monthEnd = endOfMonth(currentDate)
-    const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+    const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
     // Pad to start on Sunday
-    const startDay = monthStart.getDay()
-    const paddedDays = Array(startDay).fill(null).concat(days)
+    const startDay = monthStart.getDay();
+    const paddedDays = Array(startDay).fill(null).concat(days);
 
     // Pad to complete the grid (6 weeks)
     while (paddedDays.length < 42) {
-      paddedDays.push(null)
+      paddedDays.push(null);
     }
 
     return (
       <div className="grid grid-cols-7 border-l border-t">
         {/* Header */}
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-          <div key={day} className="p-3 border-r border-b bg-muted font-medium text-center">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+          <div
+            key={day}
+            className="p-3 border-r border-b bg-muted font-medium text-center"
+          >
             {day}
           </div>
         ))}
@@ -235,38 +271,51 @@ export default function MeetingCalendarView({
         {/* Days */}
         {paddedDays.map((date, index) => (
           <div key={index}>
-            {date ? renderCalendarDay(date) : <div className="min-h-[100px] border-r border-b bg-muted/30" />}
+            {date ? (
+              renderCalendarDay(date)
+            ) : (
+              <div className="min-h-[100px] border-r border-b bg-muted/30" />
+            )}
           </div>
         ))}
       </div>
-    )
-  }
+    );
+  };
 
   const renderDayView = () => {
-    if (!selectedDate) return null
+    if (!selectedDate) return null;
 
-    const dayMeetings = getMeetingsForDate(selectedDate)
+    const dayMeetings = getMeetingsForDate(selectedDate);
 
     return (
       <div className="space-y-4">
         <div className="text-lg font-medium">
-          {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+          {format(selectedDate, "EEEE, MMMM d, yyyy")}
         </div>
 
         {dayMeetings.length > 0 ? (
           <div className="space-y-3">
             {dayMeetings
-              .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime())
+              .sort(
+                (a, b) =>
+                  new Date(a.scheduled_time).getTime() -
+                  new Date(b.scheduled_time).getTime()
+              )
               .map((meeting) => (
-                <Card key={meeting.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                <Card
+                  key={meeting.id}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="flex flex-col items-center">
                           <div className="text-lg font-bold">
-                            {format(new Date(meeting.scheduled_time), 'HH:mm')}
+                            {format(new Date(meeting.scheduled_time), "HH:mm")}
                           </div>
-                          <Badge variant={getStatusBadgeVariant(meeting.status)}>
+                          <Badge
+                            variant={getStatusBadgeVariant(meeting.status)}
+                          >
                             {meeting.status}
                           </Badge>
                         </div>
@@ -274,9 +323,13 @@ export default function MeetingCalendarView({
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <User className="w-4 h-4" />
-                            <span className="font-medium">{meeting.lead?.name}</span>
+                            <span className="font-medium">
+                              {meeting.lead?.name}
+                            </span>
                             {meeting.lead?.company && (
-                              <span className="text-muted-foreground">• {meeting.lead.company}</span>
+                              <span className="text-muted-foreground">
+                                • {meeting.lead.company}
+                              </span>
                             )}
                           </div>
 
@@ -302,7 +355,7 @@ export default function MeetingCalendarView({
                       </div>
 
                       <div className="flex gap-2">
-                        {meeting.status === 'scheduled' && (
+                        {meeting.status === "scheduled" && (
                           <Button
                             size="sm"
                             onClick={() => handleJoinMeeting(meeting)}
@@ -351,8 +404,8 @@ export default function MeetingCalendarView({
           </div>
         )}
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <div className="w-full space-y-6">
@@ -374,16 +427,16 @@ export default function MeetingCalendarView({
               {/* View Mode Toggle */}
               <div className="flex border rounded-md">
                 <Button
-                  variant={viewMode === 'month' ? 'default' : 'ghost'}
+                  variant={viewMode === "month" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setViewMode('month')}
+                  onClick={() => setViewMode("month")}
                 >
                   Month
                 </Button>
                 <Button
-                  variant={viewMode === 'day' ? 'default' : 'ghost'}
+                  variant={viewMode === "day" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setViewMode('day')}
+                  onClick={() => setViewMode("day")}
                   disabled={!selectedDate}
                 >
                   Day
@@ -395,19 +448,19 @@ export default function MeetingCalendarView({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigateMonth('prev')}
+                  onClick={() => navigateMonth("prev")}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
 
                 <div className="min-w-[150px] text-center font-medium">
-                  {format(currentDate, 'MMMM yyyy')}
+                  {format(currentDate, "MMMM yyyy")}
                 </div>
 
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigateMonth('next')}
+                  onClick={() => navigateMonth("next")}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </Button>
@@ -421,9 +474,13 @@ export default function MeetingCalendarView({
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 text-center text-muted-foreground">Loading meetings...</div>
+            <div className="p-6 text-center text-muted-foreground">
+              Loading meetings...
+            </div>
+          ) : viewMode === "month" ? (
+            renderMonthView()
           ) : (
-            viewMode === 'month' ? renderMonthView() : renderDayView()
+            renderDayView()
           )}
         </CardContent>
       </Card>
@@ -437,7 +494,8 @@ export default function MeetingCalendarView({
               Meeting Details
             </DialogTitle>
             <DialogDescription>
-              {selectedMeeting && format(new Date(selectedMeeting.scheduled_time), 'PPP p')}
+              {selectedMeeting &&
+                format(new Date(selectedMeeting.scheduled_time), "PPP p")}
             </DialogDescription>
           </DialogHeader>
 
@@ -446,7 +504,9 @@ export default function MeetingCalendarView({
               {/* Meeting Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground">Lead</div>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Lead
+                  </div>
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4" />
                     <span>{selectedMeeting.lead.name}</span>
@@ -459,14 +519,20 @@ export default function MeetingCalendarView({
                 </div>
 
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground">Status</div>
-                  <Badge variant={getStatusBadgeVariant(selectedMeeting.status)}>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Status
+                  </div>
+                  <Badge
+                    variant={getStatusBadgeVariant(selectedMeeting.status)}
+                  >
                     {selectedMeeting.status}
                   </Badge>
                 </div>
 
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground">Duration</div>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Duration
+                  </div>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4" />
                     <span>{selectedMeeting.duration_minutes} minutes</span>
@@ -474,7 +540,9 @@ export default function MeetingCalendarView({
                 </div>
 
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground">Room ID</div>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Room ID
+                  </div>
                   <div className="font-mono text-sm">
                     {selectedMeeting.meeting_room_id}
                   </div>
@@ -484,7 +552,9 @@ export default function MeetingCalendarView({
               {/* Question Set */}
               {selectedMeeting.question_set && (
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground mb-2">Question Set</div>
+                  <div className="text-sm font-medium text-muted-foreground mb-2">
+                    Question Set
+                  </div>
                   <div className="flex items-center gap-2 p-3 border rounded-md">
                     <Bot className="w-4 h-4" />
                     <span>{selectedMeeting.question_set.name}</span>
@@ -495,20 +565,24 @@ export default function MeetingCalendarView({
               {/* Meeting Stats */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center p-3 border rounded-md">
-                  <div className="text-2xl font-bold">{selectedMeeting.participants_joined}</div>
-                  <div className="text-sm text-muted-foreground">Participants</div>
+                  <div className="text-2xl font-bold">
+                    {selectedMeeting.participants_joined}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Participants
+                  </div>
                 </div>
 
                 <div className="text-center p-3 border rounded-md">
                   <div className="text-2xl font-bold">
-                    {selectedMeeting.ai_joined_at ? '✓' : '—'}
+                    {selectedMeeting.ai_joined_at ? "✓" : "—"}
                   </div>
                   <div className="text-sm text-muted-foreground">AI Joined</div>
                 </div>
 
                 <div className="text-center p-3 border rounded-md">
                   <div className="text-2xl font-bold">
-                    {format(new Date(selectedMeeting.created_at), 'MMM d')}
+                    {format(new Date(selectedMeeting.created_at), "MMM d")}
                   </div>
                   <div className="text-sm text-muted-foreground">Scheduled</div>
                 </div>
@@ -516,7 +590,7 @@ export default function MeetingCalendarView({
 
               {/* Actions */}
               <div className="flex gap-3 pt-4">
-                {selectedMeeting.status === 'scheduled' && (
+                {selectedMeeting.status === "scheduled" && (
                   <Button onClick={() => handleJoinMeeting(selectedMeeting)}>
                     <Video className="w-4 h-4 mr-2" />
                     Join Meeting
@@ -527,8 +601,8 @@ export default function MeetingCalendarView({
                   <Button
                     variant="outline"
                     onClick={() => {
-                      onEditMeeting(selectedMeeting)
-                      setShowMeetingDetails(false)
+                      onEditMeeting(selectedMeeting);
+                      setShowMeetingDetails(false);
                     }}
                   >
                     <Edit className="w-4 h-4 mr-2" />
@@ -540,8 +614,8 @@ export default function MeetingCalendarView({
                   <Button
                     variant="destructive"
                     onClick={() => {
-                      onDeleteMeeting(selectedMeeting.id)
-                      setShowMeetingDetails(false)
+                      onDeleteMeeting(selectedMeeting.id);
+                      setShowMeetingDetails(false);
                     }}
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
@@ -554,5 +628,5 @@ export default function MeetingCalendarView({
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
