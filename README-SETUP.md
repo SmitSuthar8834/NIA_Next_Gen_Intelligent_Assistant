@@ -65,10 +65,7 @@ Terminal 2 (Backend):
 npm run dev:backend
 ```
 
-**Option 3: Use the custom script**
-```bash
-node start-dev.js
-```
+
 
 ## Access Points
 

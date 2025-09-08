@@ -82,7 +82,7 @@ export default function LeadsPage() {
     <RequireAuth>
       <div className="space-y-6">
         {/* Debug info */}
-        <Card className="border-blue-200 bg-blue-50">
+        {/* <Card className="border-blue-200 bg-blue-50">
           <CardContent className="pt-4">
             <div className="text-sm space-y-1">
               <div>Leads count: {leads.length}</div>
@@ -91,7 +91,7 @@ export default function LeadsPage() {
               <div>API URL: {process.env.NEXT_PUBLIC_API_URL}</div>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         <Card>
           <CardHeader>

@@ -12,19 +12,18 @@ This guide helps you run the project locally with a reverse proxy for multi-devi
 
 ## 🚀 Quick Start (Windows)
 
-### Option 1: One-Click Start (Recommended)
-```cmd
-start-local.bat
-```
-
-### Option 2: Manual Steps
+### Manual Steps
 ```cmd
 # 1. Install dependencies
 npm install
 cd backend && pip install -r requirements.txt && cd ..
 
-# 2. Start with reverse proxy
-node start-with-proxy.js
+# 2. Start frontend
+npm run dev
+
+# 3. Start backend (in separate terminal)
+cd backend
+uvicorn app.main:app --reload
 ```
 
 ## 🚀 Quick Start (Mac/Linux)
@@ -34,8 +33,12 @@ node start-with-proxy.js
 npm install
 cd backend && pip install -r requirements.txt && cd ..
 
-# 2. Start with reverse proxy
-node start-with-proxy.js
+# 2. Start frontend
+npm run dev
+
+# 3. Start backend (in separate terminal)
+cd backend
+uvicorn app.main:app --reload
 ```
 
 ## 📋 Prerequisites
@@ -50,10 +53,8 @@ Once running, you can access your app at:
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| **Proxied HTTP** | http://localhost | Main access point |
-| **Proxied HTTPS** | https://localhost | Secure access (self-signed) |
-| Direct Frontend | http://localhost:3000 | Next.js dev server |
-| Direct Backend | http://localhost:8000 | FastAPI server |
+| Frontend | http://localhost:3000 | Next.js dev server |
+| Backend | http://localhost:8000 | FastAPI server |
 | API Docs | http://localhost:8000/docs | Swagger documentation |
 
 ## 📱 Multi-Device Access
@@ -80,11 +81,10 @@ ip addr show
    - `http://192.168.1.100` (HTTP)
    - `https://192.168.1.100` (HTTPS - accept security warning)
 
-### For HTTPS on Mobile
-1. Visit `https://YOUR_LOCAL_IP` on your phone
-2. You'll see a security warning
-3. Click "Advanced" → "Proceed to site" (Chrome) or similar
-4. Your app will now work with camera/microphone access!
+### For Mobile Access
+1. Visit `http://YOUR_LOCAL_IP:3000` on your phone
+2. Your app should load normally
+3. Note: Camera/microphone features may require HTTPS in production
 
 ## 🔧 How It Works
 
@@ -179,22 +179,20 @@ docker run --rm -v %cd%/nginx.conf:/etc/nginx/nginx.conf nginx nginx -t
 - **Don't expose ports to internet** without proper security
 - **CORS is open** for local development convenience
 
-## 📁 Files Created
+## 📁 Development Files
 
-The setup creates these files:
-- `ssl/` - Directory for SSL certificates
-- `nginx.conf` - Nginx configuration
-- `docker-compose.local.yml` - Local Docker setup
-- `start-with-proxy.js` - Startup script
-- `start-local.bat` - Windows batch file
+The project includes these development files:
+- `.env.local` - Frontend environment variables
+- `backend/.env` - Backend environment variables
+- `package.json` - Frontend dependencies and scripts
+- `backend/requirements.txt` - Python dependencies
 
 ## 🎉 Success!
 
 If everything works, you should see:
-- ✅ Frontend loads at http://localhost
-- ✅ API responds at http://localhost/api
-- ✅ HTTPS works at https://localhost (with warning)
-- ✅ Mobile devices can access via your local IP
-- ✅ Camera/microphone work with HTTPS
+- ✅ Frontend loads at http://localhost:3000
+- ✅ API responds at http://localhost:8000
+- ✅ API docs available at http://localhost:8000/docs
+- ✅ Mobile devices can access via your local IP:3000
 
-Your sales assistant app is now ready for multi-device testing! 🚀
+Your sales assistant app is now ready for development! 🚀

@@ -1,18 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { 
-  Calendar, 
-  Plus, 
-  Settings, 
-  HelpCircle, 
+import {
+  Calendar,
+  Plus,
+  Settings,
+  HelpCircle,
   Mail,
   Video,
-  Users,
   Bot
 } from "lucide-react"
 
@@ -22,12 +21,8 @@ import QuestionSetManager from "./QuestionSetManager"
 import EmailNotificationSettings from "./EmailNotificationSettings"
 import EnhancedWebRTCMeeting from "./EnhancedWebRTCMeeting"
 import { ScheduledMeeting } from "@/types/meetings"
-import { useUser } from "@/hooks/useUser"
 
 export default function MeetingsDashboard() {
-  // auth / token for API calls
-  const { user, access_token } = useUser()
-
   // UI state
   const [activeTab, setActiveTab] = useState("calendar")
   const [showScheduler, setShowScheduler] = useState(false)
@@ -36,78 +31,17 @@ export default function MeetingsDashboard() {
   const [editingMeeting, setEditingMeeting] = useState<ScheduledMeeting | null>(null)
   const [quickScheduleType, setQuickScheduleType] = useState<'today' | 'normal' | null>(null)
 
-  // === New: meetings state (single source of truth) ===
-  const [meetings, setMeetings] = useState<ScheduledMeeting[]>([])
-  const [loadingMeetings, setLoadingMeetings] = useState(false)
-
-  // Initial load of meetings (you can refine with start/end date if desired)
-  useEffect(() => {
-    let mounted = true
-    const load = async () => {
-      if (!access_token) return
-      setLoadingMeetings(true)
-      try {
-        // Fetch all or you can restrict by date range
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/scheduled-meetings/`, {
-          headers: {
-            'Authorization': `Bearer ${access_token}`
-          }
-        })
-        if (!mounted) return
-       if (res.ok) {
-  const data = await res.json()
-  // API might return { meetings: [...] } or an array directly
-  const list: ScheduledMeeting[] = Array.isArray(data) ? data : (data.meetings || [])
-
-  // Normalize each meeting to ensure lead exists (fallback values)
-  const normalized = list.map(m => ({
-    ...m,
-    lead: m.lead ?? {
-      id: `unknown-${m.id}`,
-      user_id: 'unknown',
-      name: 'Unknown Lead',
-      status: 'unknown',
-      source: 'unknown',
-      created_at: m.created_at ?? new Date().toISOString(),
-      updated_at: m.updated_at ?? new Date().toISOString()
-    }
-  }))
-
-  setMeetings(normalized)
-
-        } else {
-          console.warn('Failed to load meetings', res.status)
-        }
-      } catch (err) {
-        console.error('Failed to load meetings:', err)
-      } finally {
-        if (mounted) setLoadingMeetings(false)
-      }
-    }
-    load()
-    return () => { mounted = false }
-  }, [access_token])
-
-  // Handler: Scheduler created a meeting — add to state and show calendar
-  const handleMeetingScheduled = (meeting: ScheduledMeeting) => {
-    console.log('dashboard received scheduled meeting', meeting)
+  const handleMeetingScheduled = () => {
     setShowScheduler(false)
+    // Refresh calendar view
     setActiveTab("calendar")
-
-    // Merge into meetings state (avoid duplicates)
-    setMeetings(prev => {
-      if (prev.some(m => m.id === meeting.id)) return prev
-      return [...prev, meeting]
-    })
   }
 
-  // Handler: user selects meeting in calendar
   const handleMeetingSelect = (meeting: ScheduledMeeting) => {
     setSelectedMeeting(meeting)
-    if ((meeting.status === 'active' || meeting.status === 'scheduled') /* && meeting.lead */) {
-  setShowMeeting(true)
-}
-
+    if (meeting.status === 'active' || meeting.status === 'scheduled') {
+      setShowMeeting(true)
+    }
   }
 
   const handleEditMeeting = (meeting: ScheduledMeeting) => {
@@ -116,73 +50,47 @@ export default function MeetingsDashboard() {
   }
 
   const handleDeleteMeeting = async (meetingId: string) => {
-    // Optimistic UI: remove locally immediately
-    setMeetings(prev => prev.filter(m => m.id !== meetingId))
-
-    // TODO: call API to delete meeting. Example:
-    try {
-      if (!access_token) return
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/scheduled-meetings/${meetingId}/`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${access_token}`
-        }
-      })
-      if (!res.ok) {
-        console.warn('Failed to delete meeting on server, status:', res.status)
-        // optionally refetch or re-add removed meeting on failure
-      }
-    } catch (err) {
-      console.error('Failed to delete meeting:', err)
-    }
-  }
-
-  const handleJoinMeeting = (meeting: ScheduledMeeting) => {
-    setSelectedMeeting(meeting)
-    setShowMeeting(true)
+    // Implementation would call API to delete meeting
+    console.log('Delete meeting:', meetingId)
   }
 
   const handleQuickMeeting = (type: 'today' | 'now') => {
     if (type === 'today') {
+      // Open scheduler with today's date pre-selected
       setQuickScheduleType('today')
       setShowScheduler(true)
     } else if (type === 'now') {
+      // Create an instant meeting
       handleStartInstantMeeting()
     }
   }
 
   const handleStartInstantMeeting = async () => {
+    // Create a meeting that starts immediately
     try {
-      // generate one stable roomId and reuse it
-      const roomId = `room-${Math.random().toString(36).substr(2, 8)}`
+      // This would create a meeting with current time
       const instantMeeting: ScheduledMeeting = {
         id: `instant-${Date.now()}`,
-        meeting_room_id: roomId,
+        meeting_room_id: `room-${Math.random().toString(36).substring(2, 10)}`,
         scheduled_time: new Date().toISOString(),
         duration_minutes: 60,
         status: 'active',
         lead: {
           id: 'instant-lead',
-          user_id: user?.id || 'current-user',
+          user_id: 'current-user',
           name: 'Instant Meeting',
           status: 'new',
           source: 'instant',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         },
-        join_link: `/meetings/join/${roomId}`,
+        join_link: `/meetings/join/room-${Math.random().toString(36).substring(2, 10)}`,
         participants_joined: 0,
         created_at: new Date().toISOString()
       }
 
-      // Add to meetings state immediately so calendar shows it
-      setMeetings(prev => [instantMeeting, ...prev])
-
-      // open meeting UI
       setSelectedMeeting(instantMeeting)
       setShowMeeting(true)
-
-      // Optionally persist instant meeting to backend here
     } catch (error) {
       console.error('Failed to start instant meeting:', error)
     }
@@ -204,15 +112,15 @@ export default function MeetingsDashboard() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => handleQuickMeeting('today')}
               >
                 <Calendar className="w-4 h-4 mr-2" />
                 Schedule for Today
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => handleQuickMeeting('now')}
               >
                 <Video className="w-4 h-4 mr-2" />
@@ -254,8 +162,6 @@ export default function MeetingsDashboard() {
         {/* Calendar View */}
         <TabsContent value="calendar">
           <MeetingCalendarView
-            meetings={meetings}                 // <<-- pass meetings down
-            loading={loadingMeetings}
             onMeetingSelect={handleMeetingSelect}
             onEditMeeting={handleEditMeeting}
             onDeleteMeeting={handleDeleteMeeting}
@@ -275,8 +181,7 @@ export default function MeetingsDashboard() {
         {/* Settings */}
         <TabsContent value="settings">
           <div className="grid gap-6">
-            {/* Settings cards omitted for brevity — keep your existing markup */}
-            {/* You can paste your original settings markup here if required */}
+            {/* Meeting Settings */}
             <Card>
               <CardHeader>
                 <CardTitle>Meeting Settings</CardTitle>
@@ -285,8 +190,129 @@ export default function MeetingsDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* ... */}
-                <div className="text-sm text-muted-foreground">Settings UI</div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">Default Duration</label>
+                      <select className="w-full mt-1 p-2 border rounded-md">
+                        <option value="30">30 minutes</option>
+                        <option value="45">45 minutes</option>
+                        <option value="60">60 minutes</option>
+                        <option value="90">90 minutes</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Max Participants</label>
+                      <select className="w-full mt-1 p-2 border rounded-md">
+                        <option value="5">5 participants</option>
+                        <option value="10">10 participants</option>
+                        <option value="15">15 participants</option>
+                        <option value="20">20 participants</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" defaultChecked />
+                      <span className="text-sm">Enable automatic recording</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" defaultChecked />
+                      <span className="text-sm">Generate transcripts</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" defaultChecked />
+                      <span className="text-sm">Send meeting summaries</span>
+                    </label>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* AI Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Assistant Settings</CardTitle>
+                <CardDescription>
+                  Configure AI behavior and capabilities
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">AI Voice Speed</label>
+                    <select className="w-full mt-1 p-2 border rounded-md">
+                      <option value="0.8">Slow</option>
+                      <option value="0.9">Normal</option>
+                      <option value="1.0">Fast</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Conversation Style</label>
+                    <select className="w-full mt-1 p-2 border rounded-md">
+                      <option value="professional">Professional</option>
+                      <option value="friendly">Friendly</option>
+                      <option value="casual">Casual</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" defaultChecked />
+                      <span className="text-sm">Allow AI to ask follow-up questions</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" defaultChecked />
+                      <span className="text-sm">Enable real-time analysis</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" />
+                      <span className="text-sm">Auto-end meetings after completion</span>
+                    </label>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Integration Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Integration Settings</CardTitle>
+                <CardDescription>
+                  Configure integrations with external systems
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" defaultChecked />
+                      <span className="text-sm">Sync with Creatio CRM</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" />
+                      <span className="text-sm">Export to Google Calendar</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" />
+                      <span className="text-sm">Send to Slack notifications</span>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Webhook URL (Optional)</label>
+                    <input
+                      type="url"
+                      className="w-full mt-1 p-2 border rounded-md"
+                      placeholder="https://your-webhook-url.com/meetings"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Receive meeting events and analysis data
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -301,7 +327,7 @@ export default function MeetingsDashboard() {
               {editingMeeting ? 'Edit Meeting' : 'Schedule New Meeting'}
             </DialogTitle>
             <DialogDescription>
-              {editingMeeting 
+              {editingMeeting
                 ? 'Update the meeting details below'
                 : 'Schedule a new AI-powered discovery meeting with a lead'
               }
@@ -314,7 +340,7 @@ export default function MeetingsDashboard() {
               setEditingMeeting(null)
               setQuickScheduleType(null)
             }}
-           preselectedLeadId={editingMeeting?.lead?.id ?? undefined}
+            preselectedLeadId={editingMeeting?.lead?.id ? String(editingMeeting.lead.id) : undefined}
             preselectedDate={quickScheduleType === 'today' ? new Date() : undefined}
           />
         </DialogContent>
@@ -329,13 +355,10 @@ export default function MeetingsDashboard() {
               AI Meeting Room
             </DialogTitle>
             <DialogDescription>
-  {selectedMeeting && (
-    <>
-      Meeting with {selectedMeeting.lead?.name ?? 'Unknown Lead'} • Room: {selectedMeeting.meeting_room_id}
-    </>
-  )}
-</DialogDescription>
-
+              {selectedMeeting && (
+                <>Meeting with {selectedMeeting.lead_id} • Room: {selectedMeeting.meeting_room_id}</>
+              )}
+            </DialogDescription>
           </DialogHeader>
           {selectedMeeting && (
             <div className="flex-1 overflow-hidden">

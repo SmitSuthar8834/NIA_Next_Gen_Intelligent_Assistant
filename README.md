@@ -93,10 +93,6 @@ FRONTEND_URL=http://localhost:3000
 
 **Start Backend:**
 ```bash
-# Option 1: Using the startup script
-python start-backend.py
-
-# Option 2: Manual start
 cd backend
 uvicorn app.main:app --reload
 ```
