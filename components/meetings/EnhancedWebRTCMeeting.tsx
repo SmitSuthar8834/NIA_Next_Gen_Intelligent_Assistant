@@ -86,6 +86,7 @@ export default function EnhancedWebRTCMeeting({
   const analyserRef = useRef<AnalyserNode | null>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const hasJoinedRef = useRef(false);
 const animationFrameRef = useRef<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -276,9 +277,16 @@ const animationFrameRef = useRef<number | null>(null)
       wsRef.current = ws
 
       ws.onopen = () => {
-        console.log('Connected to signaling server:', wsUrl)
-        resolve()
-      }
+  console.log('Connected to signaling server:', wsUrl)
+  setIsConnected(true) // if you maintain this state
+  resolve()
+  // If initialization already tried to join and was waiting, attempt safe join:
+  // (no await here — joinMeetingRoom will await waitForWsOpen itself)
+  if (!hasJoinedRef.current) {
+    // fire-and-forget join (errors handled by initializeMeeting)
+    joinMeetingRoom().catch(err => console.warn('joinMeetingRoom (onopen) failed:', err))
+  }
+}
 
       ws.onmessage = (event) => {
         try {
@@ -304,14 +312,16 @@ const animationFrameRef = useRef<number | null>(null)
         reject(new Error('WebSocket connection error'))
       }
 
-      ws.onclose = (ev) => {
-        console.warn('WebSocket closed:', { code: ev.code, reason: ev.reason, wasClean: ev.wasClean })
-        setIsConnected(false)
-        // If closed before open, reject so connectToSignaling caller knows
-        if (ev.code !== 1000 && ws.readyState !== WebSocket.OPEN) {
-          reject(new Error(`WebSocket closed prematurely: ${ev.code} ${ev.reason}`))
-        }
-      }
+     ws.onclose = (ev) => {
+  console.warn('WebSocket closed:', { code: ev.code, reason: ev.reason, wasClean: ev.wasClean })
+  setIsConnected(false)
+  hasJoinedRef.current = false
+  // existing rejection condition stays
+  if (ev.code !== 1000 && ws.readyState !== WebSocket.OPEN) {
+    reject(new Error(`WebSocket closed prematurely: ${ev.code} ${ev.reason}`))
+  }
+}
+
 
     } catch (err) {
       console.error('connectToSignaling unexpected error:', err)
@@ -350,7 +360,48 @@ const animationFrameRef = useRef<number | null>(null)
     }
   }
 
-  const joinMeetingRoom = async () => {
+  // ---- add this helper directly ABOVE joinMeetingRoom ----
+const waitForWsOpen = (ws: WebSocket | null, timeout = 7000) =>
+  new Promise<void>((resolve, reject) => {
+    if (!ws) return reject(new Error('No WebSocket instance'));
+    if (ws.readyState === WebSocket.OPEN) return resolve();
+
+    const onOpen = () => {
+      cleanup();
+      resolve();
+    };
+    const onClose = (ev?: CloseEvent) => {
+      cleanup();
+      reject(new Error(`WebSocket closed while connecting: code=${ev?.code} reason=${ev?.reason}`));
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error('WebSocket error while connecting'));
+    };
+
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('WebSocket open timeout'));
+    }, timeout);
+
+    function cleanup() {
+      clearTimeout(timer);
+      try {
+        ws.removeEventListener('open', onOpen);
+        ws.removeEventListener('close', onClose);
+        ws.removeEventListener('error', onError);
+      } catch (e) {
+        // ignore removal errors
+      }
+    }
+
+    ws.addEventListener('open', onOpen);
+    ws.addEventListener('close', onClose);
+    ws.addEventListener('error', onError);
+  });
+
+// ---- replace entire joinMeetingRoom function with this ----
+const joinMeetingRoom = async () => {
   if (!user) {
     console.error('joinMeetingRoom: missing user')
     throw new Error('Missing user info')
@@ -358,6 +409,12 @@ const animationFrameRef = useRef<number | null>(null)
   if (!wsRef.current) {
     console.error('joinMeetingRoom: wsRef not available (signaling not connected)')
     throw new Error('Signaling WebSocket not connected')
+  }
+
+  // Prevent double-joining
+  if (hasJoinedRef.current) {
+    console.debug('joinMeetingRoom: already joined, skipping')
+    return
   }
 
   const joinMessage = {
@@ -371,13 +428,23 @@ const animationFrameRef = useRef<number | null>(null)
   }
 
   try {
+    // Wait for the socket to actually be OPEN (or fail with a descriptive error)
+    await waitForWsOpen(wsRef.current, 7000)
+
+    // Final ready-state guard (extra safety)
+    if (wsRef.current.readyState !== WebSocket.OPEN) {
+      throw new Error('WebSocket not open after waiting')
+    }
+
     wsRef.current.send(JSON.stringify(joinMessage))
+    hasJoinedRef.current = true
     setMeetingStatus('active')
   } catch (err) {
     console.error('Failed to send join message:', err)
     throw err
   }
 }
+
 
 
   const handleParticipantJoined = (participant: Participant) => {
