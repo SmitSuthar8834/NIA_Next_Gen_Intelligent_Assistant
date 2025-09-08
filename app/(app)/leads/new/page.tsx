@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function NewLeadPage() {
   const router = useRouter();
@@ -16,11 +16,35 @@ export default function NewLeadPage() {
 
   const addLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from("leads").insert([form]);
-    if (error) {
-      setError(error.message);
-    } else {
-      router.push("/leads"); // redirect back to leads list
+    setError(null);
+
+    try {
+      // 🔑 get API URL from env
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      // 🔑 get JWT from Supabase session (if backend requires auth)
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`${apiUrl}/leads`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token && {
+            Authorization: `Bearer ${session.access_token}`,
+          }),
+        },
+        body: JSON.stringify(form),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.detail || "Failed to create lead");
+        return;
+      }
+
+      router.push("/leads");
+    } catch (err: any) {
+      setError(err.message || "Network error");
     }
   };
 
