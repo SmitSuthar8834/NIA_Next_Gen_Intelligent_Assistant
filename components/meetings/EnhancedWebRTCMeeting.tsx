@@ -758,49 +758,76 @@ const animationFrameRef = useRef<number | null>(null)
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {participants.map((participant) => (
-                    <div key={participant.id} className="flex items-center gap-3 p-2 rounded-md border">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className={participant.type === 'ai' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100'}>
-                          {participant.type === 'ai' ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                        </AvatarFallback>
-                      </Avatar>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium truncate">{participant.name}</span>
-                          <Badge variant="outline" className="text-xs px-2 py-0.5">
-                            {participant.type}
-                          </Badge>
-                        </div>
-                        
-                        <div className="flex items-center gap-2 mt-1">
-                          {participant.isConnected ? (
-                            <Badge variant="outline" className="text-green-600 text-xs">
-                              Connected
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-gray-500 text-xs">
-                              Disconnected
-                            </Badge>
-                          )}
-                          
-                          {participant.isMuted && (
-                            <MicOff className="w-3 h-3 text-red-500" />
-                          )}
-                          
-                          {participant.isSpeaking && (
-                            <div className="flex items-center gap-1">
-                              <Volume2 className="w-3 h-3 text-green-500" />
-                              <Progress value={participant.audioLevel * 100} className="w-8 h-1" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {/* --- Participants list (AI first, safe keys) --- */}
+{(() => {
+  // create a sorted copy so AI participants appear first
+  const sortedParticipants = Array.isArray(participants)
+    ? [...participants].sort((a, b) => {
+        if (a?.type === "ai" && b?.type !== "ai") return -1;
+        if (b?.type === "ai" && a?.type !== "ai") return 1;
+        return 0;
+      })
+    : [];
+
+  return (
+    <div className="space-y-3">
+      {sortedParticipants.map((participant, index) => {
+        // robust key: prefer id, otherwise fallback to a stable combination
+        const key =
+          (participant && participant.id) ||
+          `${(participant?.name ?? "participant").replace(/\s+/g, "-")}-${index}`;
+
+        const displayName = participant?.name ?? (participant?.type === "ai" ? "AI" : "Participant");
+        const audioLevel = typeof participant?.audioLevel === "number" ? participant.audioLevel : 0;
+
+        return (
+          <div key={key} className="flex items-center gap-3 p-2 rounded-md border">
+            <Avatar className="w-8 h-8">
+              <AvatarFallback
+                className={
+                  participant?.type === "ai" ? "bg-blue-100 text-blue-600" : "bg-gray-100"
+                }
+              >
+                {participant?.type === "ai" ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+              </AvatarFallback>
+            </Avatar>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium truncate">{displayName}</span>
+                <Badge variant="outline" className="text-xs px-2 py-0.5">
+                  {participant?.type ?? "unknown"}
+                </Badge>
+              </div>
+
+              <div className="flex items-center gap-2 mt-1">
+                {participant?.isConnected ? (
+                  <Badge variant="outline" className="text-green-600 text-xs">
+                    Connected
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-gray-500 text-xs">
+                    Disconnected
+                  </Badge>
+                )}
+
+                {participant?.isMuted && <MicOff className="w-3 h-3 text-red-500" />}
+
+                {participant?.isSpeaking && (
+                  <div className="flex items-center gap-1">
+                    <Volume2 className="w-3 h-3 text-green-500" />
+                    <Progress value={Math.max(0, Math.min(100, audioLevel * 100))} className="w-8 h-1" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+                })()}
+
               </CardContent>
             </Card>
           </div>
