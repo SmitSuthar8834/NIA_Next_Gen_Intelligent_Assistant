@@ -171,7 +171,7 @@ export default function MeetingScheduler({
     if (!access_token) return
 
     try {
-      const response = await fetch(`${process.env.BACKEND_URL}/question-sets/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/question-sets/`, {
         headers: {
           'Authorization': `Bearer ${access_token}`
         }
@@ -204,7 +204,7 @@ export default function MeetingScheduler({
     }
 
     try {
-      const response = await fetch(`${process.env.BACKEND_URL}/leads/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -272,7 +272,7 @@ export default function MeetingScheduler({
         timezone: timezone
       }
 
-      const response = await fetch(`${process.env.BACKEND_URL}/scheduled-meetings/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/scheduled-meetings/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

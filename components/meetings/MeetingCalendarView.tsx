@@ -88,7 +88,7 @@ export default function MeetingCalendarView({
       const endDate = endOfMonth(currentDate)
 
       const response = await fetch(
-        `${process.env.BACKEND_URL}/scheduled-meetings/?` +
+        `${process.env.NEXT_PUBLIC_API_URL}/scheduled-meetings/?` +
         `start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`,
         {
           headers: {

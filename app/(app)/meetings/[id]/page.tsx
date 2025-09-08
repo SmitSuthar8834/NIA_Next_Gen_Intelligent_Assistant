@@ -58,7 +58,7 @@ export default function MeetingDetailsPage() {
       setError(null)
 
       const response = await fetch(
-        `${process.env.BACKEND_URL}/scheduled-meetings/${meetingId}`,
+        `${process.env.NEXT_PUBLIC_API_URLL}/scheduled-meetings/${meetingId}`,
         {
           headers: {
             'Authorization': `Bearer ${access_token}`
@@ -86,7 +86,7 @@ export default function MeetingDetailsPage() {
   const fetchLeadAndMerge = async (leadId: string) => {
     try {
       setLeadLoading(true)
-      const res = await fetch(`${process.env.BACKEND_URL}/leads/${leadId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads/${leadId}`, {
         headers: { 'Authorization': `Bearer ${access_token}` }
       })
       if (!res.ok) {
