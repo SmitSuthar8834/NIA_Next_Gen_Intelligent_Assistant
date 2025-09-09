@@ -193,8 +193,8 @@ export default function MeetingsDashboard() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium">Default Duration</label>
-                      <select className="w-full mt-1 p-2 border rounded-md">
+                      <label htmlFor="default-duration" className="text-sm font-medium">Default Duration</label>
+                      <select id="default-duration" aria-label="Default Duration" className="w-full mt-1 p-2 border rounded-md">
                         <option value="30">30 minutes</option>
                         <option value="45">45 minutes</option>
                         <option value="60">60 minutes</option>
@@ -202,8 +202,8 @@ export default function MeetingsDashboard() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Max Participants</label>
-                      <select className="w-full mt-1 p-2 border rounded-md">
+                      <label htmlFor="max-participants" className="text-sm font-medium">Max Participants</label>
+                      <select id="max-participants" aria-label="Max Participants" className="w-full mt-1 p-2 border rounded-md">
                         <option value="5">5 participants</option>
                         <option value="10">10 participants</option>
                         <option value="15">15 participants</option>
@@ -232,7 +232,7 @@ export default function MeetingsDashboard() {
 
             {/* AI Settings */}
             <Card>
-              <CardHeader>
+                            <CardHeader>
                 <CardTitle>AI Assistant Settings</CardTitle>
                 <CardDescription>
                   Configure AI behavior and capabilities
@@ -241,8 +241,8 @@ export default function MeetingsDashboard() {
               <CardContent>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium">AI Voice Speed</label>
-                    <select className="w-full mt-1 p-2 border rounded-md">
+                    <label htmlFor="ai-voice-speed" className="text-sm font-medium">AI Voice Speed</label>
+                    <select id="ai-voice-speed" aria-label="AI Voice Speed" className="w-full mt-1 p-2 border rounded-md">
                       <option value="0.8">Slow</option>
                       <option value="0.9">Normal</option>
                       <option value="1.0">Fast</option>
@@ -250,8 +250,8 @@ export default function MeetingsDashboard() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Conversation Style</label>
-                    <select className="w-full mt-1 p-2 border rounded-md">
+                    <label htmlFor="conversation-style" className="text-sm font-medium">Conversation Style</label>
+                    <select id="conversation-style" aria-label="Conversation Style" className="w-full mt-1 p-2 border rounded-md">
                       <option value="professional">Professional</option>
                       <option value="friendly">Friendly</option>
                       <option value="casual">Casual</option>

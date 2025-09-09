@@ -79,20 +79,15 @@ class ScheduledMeetingBase(BaseModel):
     email_notifications_enabled: bool = Field(default=True, description="Whether to send email notifications")
     timezone: str = Field(default="UTC", description="Timezone for the meeting")
 
+    # NOTE: Do not enforce time-in-future here to allow reading past meetings
     @field_validator('scheduled_time')
     @classmethod
-    def validate_scheduled_time(cls, v):
-        """Ensure scheduled time is reasonable"""
-        # Convert string to datetime if needed
+    def normalize_scheduled_time(cls, v):
+        # Convert string to datetime if needed and normalize to aware datetime
         if isinstance(v, str):
             v = datetime.fromisoformat(v.replace('Z', '+00:00'))
-        
-        # Allow times within 1 minute of now (for testing) or in the future
-        now = datetime.now(timezone.utc)
-        min_time = now - timedelta(minutes=1)
-        
-        if v < min_time:
-            raise ValueError("Scheduled time must not be in the past")
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
         return v
 
     @field_validator('timezone')
@@ -109,7 +104,15 @@ class ScheduledMeetingBase(BaseModel):
 
 class ScheduledMeetingCreate(ScheduledMeetingBase):
     """Schema for creating a new scheduled meeting"""
-    pass
+    @field_validator('scheduled_time')
+    @classmethod
+    def validate_scheduled_time_future_on_create(cls, v):
+        # Allow slight slack but not past on create
+        now = datetime.now(timezone.utc)
+        min_time = now - timedelta(minutes=1)
+        if v < min_time:
+            raise ValueError("Scheduled time must not be in the past")
+        return v
 
 class ScheduledMeetingUpdate(BaseModel):
     """Schema for updating a scheduled meeting"""
@@ -125,9 +128,15 @@ class ScheduledMeetingUpdate(BaseModel):
 
     @field_validator('scheduled_time')
     @classmethod
-    def validate_scheduled_time(cls, v):
+    def validate_scheduled_time_future_on_update(cls, v):
         """Ensure scheduled time is in the future if provided"""
-        if v is not None and v <= datetime.now(timezone.utc):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v.replace('Z', '+00:00'))
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        if v <= datetime.now(timezone.utc):
             raise ValueError("Scheduled time must be in the future")
         return v
 

@@ -24,6 +24,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import { useUser } from "@/hooks/useUser"
+import { config } from "@/lib/config"
 
 interface Participant {
   id: string
@@ -72,6 +73,10 @@ export default function EnhancedWebRTCMeeting({
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [audioLevel, setAudioLevel] = useState(0)
   const [voiceActivityDetected, setVoiceActivityDetected] = useState(false)
+  const [audioPermissionNeeded, setAudioPermissionNeeded] = useState(false)
+  const audioPlaybackQueueRef = useRef<string[]>([])
+  const isPlayingRef = useRef(false)
+  const audioElementRef = useRef<HTMLAudioElement | null>(null)
   
   // UI state
   const [loading, setLoading] = useState(false)
@@ -250,8 +255,10 @@ const animationFrameRef = useRef<number | null>(null)
   const connectToSignaling = async () => {
   return new Promise<void>((resolve, reject) => {
     try {
-      if (!process?.env?.NEXT_PUBLIC_WS_URL) {
-        const err = new Error('Missing NEXT_PUBLIC_WS_URL env var')
+      // Prefer env var, but fall back to shared config.wsUrl
+      let base = process?.env?.NEXT_PUBLIC_WS_URL || config.wsUrl
+      if (!base) {
+        const err = new Error('Missing WebSocket base URL (NEXT_PUBLIC_WS_URL and config.wsUrl are not set)')
         console.error(err)
         return reject(err)
       }
@@ -261,16 +268,22 @@ const animationFrameRef = useRef<number | null>(null)
         return reject(err)
       }
 
-      // Ensure we use the provided URL as-is — caller must set wss:// for production
-      let base = process.env.NEXT_PUBLIC_WS_URL
-      // If user put an https:// origin accidentally, try to convert to wss
+      // Normalize protocol to ws/wss
       if (base.startsWith('https://')) {
         base = base.replace(/^https:\/\//, 'wss://')
       } else if (base.startsWith('http://')) {
         base = base.replace(/^http:\/\//, 'ws://')
       }
 
-      const wsUrl = `${base.replace(/\/$/, '')}/ws/signaling/${roomId}?token=${encodeURIComponent(access_token)}`
+      const participantType = 'human'
+      const uid = user?.id
+      const urlBase = base.replace(/\/$/, '')
+      const qs = new URLSearchParams({
+        token: access_token,
+        ...(uid ? { user_id: uid } : {}),
+        participant_type: participantType,
+      }).toString()
+      const wsUrl = `${urlBase}/ws/signaling/${roomId}?${qs}`
       const ws = new WebSocket(wsUrl)
 
       // set ref early so cleanup or other callers see it
@@ -331,37 +344,8 @@ const animationFrameRef = useRef<number | null>(null)
 }
 
 
-  const handleSignalingMessage = async (message: any) => {
-    switch (message.type) {
-      case 'participant_joined':
-        handleParticipantJoined(message.participant)
-        break
-      case 'participant_left':
-        handleParticipantLeft(message.participant_id)
-        break
-      case 'participant_updated':
-        handleParticipantUpdated(message.participant)
-        break
-      case 'message':
-        handleNewMessage(message.message)
-        break
-      case 'meeting_ended':
-        handleMeetingEnded(message.analysis)
-        break
-      case 'offer':
-        await handleOffer(message)
-        break
-      case 'answer':
-        await handleAnswer(message)
-        break
-      case 'ice_candidate':
-        await handleIceCandidate(message)
-        break
-    }
-  }
-
   // ---- add this helper directly ABOVE joinMeetingRoom ----
-const waitForWsOpen = (ws: WebSocket | null, timeout = 7000) =>
+const waitForWsOpen = (ws: WebSocket | null, timeout = 12000) =>
   new Promise<void>((resolve, reject) => {
     if (!ws) return reject(new Error('No WebSocket instance'));
     if (ws.readyState === WebSocket.OPEN) return resolve();
@@ -411,7 +395,6 @@ const joinMeetingRoom = async () => {
     throw new Error('Signaling WebSocket not connected')
   }
 
-  // Prevent double-joining
   if (hasJoinedRef.current) {
     console.debug('joinMeetingRoom: already joined, skipping')
     return
@@ -428,10 +411,7 @@ const joinMeetingRoom = async () => {
   }
 
   try {
-    // Wait for the socket to actually be OPEN (or fail with a descriptive error)
-    await waitForWsOpen(wsRef.current, 7000)
-
-    // Final ready-state guard (extra safety)
+    await waitForWsOpen(wsRef.current, 12000)
     if (wsRef.current.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket not open after waiting')
     }
@@ -439,6 +419,20 @@ const joinMeetingRoom = async () => {
     wsRef.current.send(JSON.stringify(joinMessage))
     hasJoinedRef.current = true
     setMeetingStatus('active')
+
+    // Notify backend to mark meeting active and trigger AI auto-join
+    if (access_token) {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? `${window.location.origin.replace(/^http/,'http')}` : '')
+      // fire-and-forget
+      fetch(`${apiBase}/scheduled-meetings/${meetingId}/start`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${access_token}` },
+      }).catch(() => {})
+      fetch(`${apiBase}/scheduled-meetings/${meetingId}/ai-join`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${access_token}` },
+      }).catch(() => {})
+    }
   } catch (err) {
     console.error('Failed to send join message:', err)
     throw err
@@ -446,6 +440,71 @@ const joinMeetingRoom = async () => {
 }
 
 
+
+  const handleSignalingMessage = async (message: any) => {
+    switch (message.type) {
+      case 'participant_joined':
+        handleParticipantJoined(message.participant)
+        break
+      case 'participant_left':
+        handleParticipantLeft(message.participant_id)
+        break
+      case 'participant_updated':
+        handleParticipantUpdated(message.participant)
+        break
+      case 'message':
+        handleNewMessage(message.message)
+        break
+      case 'meeting_ended':
+        handleMeetingEnded(message.analysis)
+        break
+      case 'offer':
+        await handleOffer(message)
+        break
+      case 'answer':
+        await handleAnswer(message)
+        break
+      case 'ice': // backend uses 'ice'
+      case 'ice_candidate': // accept legacy/client form
+        await handleIceCandidate(message)
+        break
+      case 'ai_joined':
+        // show AI presence in participants list
+        handleParticipantJoined({
+          id: 'ai-assistant',
+          name: 'AI Assistant',
+          type: 'ai',
+          isConnected: true,
+          isMuted: false,
+          isSpeaking: false,
+          audioLevel: 0,
+          joinedAt: new Date().toISOString(),
+        } as any)
+        break
+      case 'ai_message':
+        handleNewMessage({
+          id: crypto.randomUUID(),
+          speaker_id: 'ai-assistant',
+          speaker_type: 'ai',
+          message: message.message,
+          timestamp: new Date().toISOString(),
+        })
+        break
+      case 'ai_voice_message':
+        // queue and play audio; also append text to transcript
+        if (typeof message.audio_data === 'string' && message.audio_data.length > 0) {
+          enqueueAiAudio(message.audio_data, message.audio_format || 'mp3')
+        }
+        handleNewMessage({
+          id: crypto.randomUUID(),
+          speaker_id: 'ai-assistant',
+          speaker_type: 'ai',
+          message: message.message,
+          timestamp: new Date().toISOString(),
+        })
+        break
+    }
+  }
 
   const handleParticipantJoined = (participant: Participant) => {
     setParticipants(prev => {
@@ -507,7 +566,7 @@ const joinMeetingRoom = async () => {
     peerConnection.onicecandidate = (event) => {
       if (event.candidate && wsRef.current) {
         wsRef.current.send(JSON.stringify({
-          type: 'ice_candidate',
+          type: 'ice', // align with backend
           candidate: event.candidate,
           target_participant: participantId
         }))
@@ -526,11 +585,11 @@ const joinMeetingRoom = async () => {
 
   const handleOffer = async (message: any) => {
     const peerConnection = await createPeerConnection(message.from)
-    await peerConnection.setRemoteDescription(message.offer)
-    
+    // accept either message.offer or message.sdp
+    const remoteDesc = message.offer || message.sdp
+    await peerConnection.setRemoteDescription(remoteDesc)
     const answer = await peerConnection.createAnswer()
     await peerConnection.setLocalDescription(answer)
-    
     if (wsRef.current) {
       wsRef.current.send(JSON.stringify({
         type: 'answer',
@@ -550,7 +609,8 @@ const joinMeetingRoom = async () => {
   const handleIceCandidate = async (message: any) => {
     const peerConnection = peerConnectionsRef.current.get(message.from)
     if (peerConnection) {
-      await peerConnection.addIceCandidate(message.candidate)
+      const candidate = message.candidate || message.ice || message
+      await peerConnection.addIceCandidate(candidate)
     }
   }
 
@@ -625,15 +685,81 @@ const joinMeetingRoom = async () => {
     peerConnectionsRef.current.clear()
     
     if (audioContextRef.current) {
-      audioContextRef.current.close()
+      try {
+        if ((audioContextRef.current as any).state !== 'closed') {
+          audioContextRef.current.close()
+        }
+      } catch {}
     }
     
     if (wsRef.current) {
-      wsRef.current.close()
+      try {
+        if (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
+          wsRef.current.close()
+        }
+      } catch {}
     }
     
     if (recognitionRef.current) {
-      recognitionRef.current.stop()
+      try { recognitionRef.current.stop() } catch {}
+    }
+  }
+
+  // Simple FIFO queue to ensure AI audio plays sequentially
+  const enqueueAiAudio = (base64Audio: string, format: string = 'mp3') => {
+    audioPlaybackQueueRef.current.push(`data:audio/${format};base64,${base64Audio}`)
+    if (!isPlayingRef.current) {
+      void playNextAiAudio()
+    }
+  }
+
+  const playNextAiAudio = async () => {
+    if (isPlayingRef.current) return
+    const next = audioPlaybackQueueRef.current.shift()
+    if (!next) return
+
+    isPlayingRef.current = true
+    try {
+      if (!audioElementRef.current) {
+        audioElementRef.current = new Audio()
+      }
+      const el = audioElementRef.current
+      el.src = next
+      el.onended = () => {
+        isPlayingRef.current = false
+        void playNextAiAudio()
+      }
+      el.onerror = () => {
+        isPlayingRef.current = false
+        void playNextAiAudio()
+      }
+      // Attempt to play; may be blocked until user gesture
+      await el.play()
+    } catch (e) {
+      // Likely NotAllowedError due to autoplay policy
+      setAudioPermissionNeeded(true)
+      isPlayingRef.current = false
+    }
+  }
+
+  const enableAudioPlayback = async () => {
+    try {
+      if (!audioElementRef.current) {
+        audioElementRef.current = new Audio()
+      }
+      // Try playing a short silent buffer to satisfy gesture requirements
+      const element = audioElementRef.current
+      element.muted = true
+      element.src = 'data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA' // tiny/silent
+      await element.play().catch(() => {})
+      element.pause()
+      element.muted = false
+      setAudioPermissionNeeded(false)
+      // resume any queued audio
+      if (!isPlayingRef.current) void playNextAiAudio()
+    } catch (e) {
+      // keep the button visible
+      setAudioPermissionNeeded(true)
     }
   }
 
@@ -736,6 +862,15 @@ const joinMeetingRoom = async () => {
                     </>
                   )}
                 </Button>
+                {audioPermissionNeeded && (
+                  <Button
+                    onClick={enableAudioPlayback}
+                    variant="outline"
+                    size="lg"
+                  >
+                    Enable Audio
+                  </Button>
+                )}
               </div>
               
               {/* Audio Level Indicator */}

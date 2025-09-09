@@ -88,8 +88,6 @@ export default function MeetingCalendarView({
       setMeetings(incomingMeetings);
       return;
     }
-    // If no incomingMeetings, fetch from API
-    // fetchMeetings will run in effect below when currentDate or refreshToken changes
   }, [incomingMeetings]);
 
   // Fetch meetings when currentDate changes or refreshToken changes, only when incomingMeetings not provided
@@ -171,21 +169,14 @@ export default function MeetingCalendarView({
   };
 
   const handleMeetingClick = (meeting: ScheduledMeeting) => {
-    // Navigate to meeting detail page in the same tab
     router.push(`/meetings/${meeting.id}`);
-
-    // Still trigger parent callback if provided (for state management)
-    if (onMeetingSelect) {
-      onMeetingSelect(meeting);
-    }
+    if (onMeetingSelect) onMeetingSelect(meeting);
   };
 
   const handleJoinMeeting = (meeting: ScheduledMeeting) => {
-    // open join link in new tab
     if (meeting.join_link) {
       window.open(meeting.join_link, "_blank");
     } else {
-      // fallback behavior: open room path if join_link not set
       window.open(`/meetings/join/${meeting.meeting_room_id}`, "_blank");
     }
   };
@@ -196,46 +187,65 @@ export default function MeetingCalendarView({
     );
   };
 
+  /*
+    Small helper presentational component for compact meeting pill used inside a day cell.
+    We intentionally keep HTML/CSS simple and purely Tailwind so it is responsive.
+  */
+  const MeetingPill = ({ meeting }: { meeting: ScheduledMeeting }) => {
+    const color = getStatusColor(meeting.status).replace("bg-", "");
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleMeetingClick(meeting);
+        }}
+        className="w-full text-left p-1 rounded-md flex items-center gap-2 text-[11px] sm:text-xs truncate focus:outline-none focus:ring-2 focus:ring-offset-1"
+        aria-label={`Open meeting ${meeting.lead?.name || meeting.id}`}
+        style={{
+          backgroundColor: `${getStatusColor(meeting.status)}20`,
+        }}
+      >
+        <span
+          className={`w-2 h-2 rounded-full ${getStatusColor(meeting.status)}`}
+          aria-hidden
+        />
+        <div className="flex-1 truncate">
+          <div className="truncate font-medium">
+            {format(new Date(meeting.scheduled_time), "HH:mm")} • {meeting.lead?.name || "Meeting"}
+          </div>
+          <div className="text-muted-foreground truncate text-[10px]">
+            {meeting.lead?.company || meeting.question_set?.name || ''}
+          </div>
+        </div>
+      </button>
+    );
+  };
+
   const renderCalendarDay = (date: Date) => {
     const dayMeetings = getMeetingsForDate(date);
     const isSelected = selectedDate && isSameDay(date, selectedDate);
 
     return (
       <div
-        className={`min-h-[100px] p-2 border-r border-b cursor-pointer hover:bg-muted/50 ${
-          isSelected ? "bg-primary/10" : ""
+        className={`min-h-[96px] sm:min-h-[120px] p-2 border-r border-b cursor-pointer hover:bg-muted/40 transition-colors flex flex-col justify-start gap-2 ${
+          isSelected ? "ring-2 ring-primary/40 rounded-md" : ""
         }`}
         onClick={() => setSelectedDate(date)}
       >
-        <div className="font-medium text-sm mb-2">{format(date, "d")}</div>
-        <div className="space-y-1">
-          {dayMeetings.slice(0, 3).map((meeting) => (
-            <div
-              key={meeting.id}
-              className="text-xs p-1 rounded cursor-pointer hover:opacity-80"
-              style={{ backgroundColor: getStatusColor(meeting.status) + "20" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleMeetingClick(meeting);
-              }}
-            >
-              <div className="flex items-center gap-1">
-                <div
-                  className={`w-2 h-2 rounded-full ${getStatusColor(
-                    meeting.status
-                  )}`}
-                />
-                <span className="truncate">
-                  {format(new Date(meeting.scheduled_time), "HH:mm")} -{" "}
-                  {meeting.lead?.name || "Meeting"}
-                </span>
-              </div>
-            </div>
+        <div className="flex items-start justify-between">
+          <div className="font-medium text-sm">{format(date, "d")}</div>
+          <div className="text-[11px] text-muted-foreground hidden sm:block">
+            {format(date, "EEE")}
+          </div>
+        </div>
+
+        <div className="flex-1 flex flex-col gap-1 overflow-hidden">
+          {dayMeetings.slice(0, 4).map((meeting) => (
+            <MeetingPill key={meeting.id} meeting={meeting} />
           ))}
-          {dayMeetings.length > 3 && (
-            <div className="text-xs text-muted-foreground">
-              +{dayMeetings.length - 3} more
-            </div>
+
+          {dayMeetings.length > 4 && (
+            <div className="text-[12px] text-muted-foreground mt-1">+{dayMeetings.length - 4} more</div>
           )}
         </div>
       </div>
@@ -257,33 +267,32 @@ export default function MeetingCalendarView({
     }
 
     return (
-      <div className="grid grid-cols-7 border-l border-t">
-        {/* Header */}
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-          <div
-            key={day}
-            className="p-3 border-r border-b bg-muted font-medium text-center"
-          >
-            {day}
-          </div>
-        ))}
+      <div className="overflow-auto">
+        <div className="grid grid-cols-7 text-center border-l border-t">
+          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day=> (
+            <div key={day} className="p-2 border-r border-b bg-muted font-medium text-[13px] sm:text-sm">
+              {day}
+            </div>
+          ))}
 
-        {/* Days */}
-        {paddedDays.map((date, index) => (
-          <div key={index}>
-            {date ? (
-              renderCalendarDay(date)
-            ) : (
-              <div className="min-h-[100px] border-r border-b bg-muted/30" />
-            )}
-          </div>
-        ))}
+          {paddedDays.map((date, index) => (
+            <div key={index} className="break-words">
+              {date ? (
+                renderCalendarDay(date)
+              ) : (
+                <div className="min-h-[96px] sm:min-h-[120px] border-r border-b bg-muted/30" />
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
 
   const renderDayView = () => {
-    if (!selectedDate) return null;
+    if (!selectedDate) return (
+      <div className="p-8 text-center text-muted-foreground">Select a day to view details</div>
+    );
 
     const dayMeetings = getMeetingsForDate(selectedDate);
 
@@ -296,112 +305,49 @@ export default function MeetingCalendarView({
         {dayMeetings.length > 0 ? (
           <div className="space-y-3">
             {dayMeetings
-              .sort(
-                (a, b) =>
-                  new Date(a.scheduled_time).getTime() -
-                  new Date(b.scheduled_time).getTime()
-              )
+              .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime())
               .map((meeting) => (
-                <Card
-                  key={meeting.id}
-                  className="cursor-pointer hover:shadow-md transition-shadow"
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col items-center">
-                          <div className="text-lg font-bold">
-                            {format(new Date(meeting.scheduled_time), "HH:mm")}
-                          </div>
-                          <Badge
-                            variant={getStatusBadgeVariant(meeting.status)}
-                          >
-                            {meeting.status}
-                          </Badge>
-                        </div>
+                <Card key={meeting.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                  <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <div className="w-full sm:w-auto flex items-center gap-3">
+                      <div className="text-lg font-bold">{format(new Date(meeting.scheduled_time), "HH:mm")}</div>
+                      <Badge variant={getStatusBadgeVariant(meeting.status)}>{meeting.status}</Badge>
+                    </div>
 
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <User className="w-4 h-4" />
-                            <span className="font-medium">
-                              {meeting.lead?.name}
-                            </span>
-                            {meeting.lead?.company && (
-                              <span className="text-muted-foreground">
-                                • {meeting.lead.company}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {meeting.duration_minutes} minutes
-                            </div>
-                            {meeting.question_set && (
-                              <div className="flex items-center gap-1">
-                                <Bot className="w-3 h-3" />
-                                {meeting.question_set.name}
-                              </div>
-                            )}
-                            {meeting.participants_joined > 0 && (
-                              <div className="flex items-center gap-1">
-                                <User className="w-3 h-3" />
-                                {meeting.participants_joined} joined
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 text-sm">
+                        <User className="w-4 h-4" />
+                        <span className="font-medium truncate">{meeting.lead?.name}</span>
+                        {meeting.lead?.company && <span className="text-muted-foreground truncate">• {meeting.lead.company}</span>}
                       </div>
 
-                      <div className="flex gap-2">
-                        {meeting.status === "scheduled" && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleJoinMeeting(meeting)}
-                          >
-                            <Video className="w-4 h-4 mr-1" />
-                            Join
-                          </Button>
-                        )}
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1"><Clock className="w-3 h-3" />{meeting.duration_minutes} minutes</div>
+                        {meeting.question_set && <div className="flex items-center gap-1"><Bot className="w-3 h-3" />{meeting.question_set.name}</div>}
+                        {meeting.participants_joined > 0 && <div className="flex items-center gap-1"><User className="w-3 h-3" />{meeting.participants_joined} joined</div>}
+                      </div>
+                    </div>
 
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleMeetingClick(meeting)}
-                        >
-                          <ExternalLink className="w-4 h-4" />
+                    <div className="flex gap-2 items-center">
+                      {meeting.status === 'scheduled' && (
+                        <Button size="sm" onClick={() => handleJoinMeeting(meeting)}>
+                          <Video className="w-4 h-4 mr-1" />Join
                         </Button>
+                      )}
 
-                        {onEditMeeting && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onEditMeeting(meeting)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                        )}
+                      <Button variant="outline" size="sm" onClick={() => handleMeetingClick(meeting)}>
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
 
-                        {onDeleteMeeting && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onDeleteMeeting(meeting.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
+                      {onEditMeeting && (<Button variant="outline" size="sm" onClick={() => onEditMeeting(meeting)}><Edit className="w-4 h-4" /></Button>)}
+                      {onDeleteMeeting && (<Button variant="outline" size="sm" onClick={() => onDeleteMeeting(meeting.id)}><Trash2 className="w-4 h-4" /></Button>)}
                     </div>
                   </CardContent>
                 </Card>
               ))}
           </div>
         ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            No meetings scheduled for this day
-          </div>
+          <div className="text-center py-8 text-muted-foreground">No meetings scheduled for this day</div>
         )}
       </div>
     );
@@ -412,58 +358,27 @@ export default function MeetingCalendarView({
       {/* Header */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="flex items-center gap-2 truncate">
                 <CalendarIcon className="w-5 h-5" />
-                Meeting Calendar
+                <span className="truncate">Meeting Calendar</span>
               </CardTitle>
-              <CardDescription>
-                View and manage scheduled AI meetings
-              </CardDescription>
+              <CardDescription className="truncate">View and manage scheduled AI meetings</CardDescription>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* View Mode Toggle */}
-              <div className="flex border rounded-md">
-                <Button
-                  variant={viewMode === "month" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("month")}
-                >
-                  Month
-                </Button>
-                <Button
-                  variant={viewMode === "day" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("day")}
-                  disabled={!selectedDate}
-                >
-                  Day
-                </Button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex border rounded-md overflow-hidden">
+                <Button variant={viewMode === "month" ? "default" : "ghost"} size="sm" onClick={() => setViewMode("month")}>Month</Button>
+                <Button variant={viewMode === "day" ? "default" : "ghost"} size="sm" onClick={() => setViewMode("day") } disabled={!selectedDate}>Day</Button>
               </div>
 
-              {/* Month Navigation */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigateMonth("prev")}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
+              <div className="flex items-center gap-2 ml-auto">
+                <Button variant="outline" size="sm" onClick={() => navigateMonth('prev')} aria-label="Previous month"><ChevronLeft className="w-4 h-4" /></Button>
 
-                <div className="min-w-[150px] text-center font-medium">
-                  {format(currentDate, "MMMM yyyy")}
-                </div>
+                <div className="min-w-[140px] text-center font-medium text-sm">{format(currentDate, 'MMMM yyyy')}</div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigateMonth("next")}
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+                <Button variant="outline" size="sm" onClick={() => navigateMonth('next')} aria-label="Next month"><ChevronRight className="w-4 h-4" /></Button>
               </div>
             </div>
           </div>
@@ -474,9 +389,7 @@ export default function MeetingCalendarView({
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 text-center text-muted-foreground">
-              Loading meetings...
-            </div>
+            <div className="p-6 text-center text-muted-foreground">Loading meetings...</div>
           ) : viewMode === "month" ? (
             renderMonthView()
           ) : (
@@ -485,143 +398,67 @@ export default function MeetingCalendarView({
         </CardContent>
       </Card>
 
+      {/* Compact legend for readability */}
+      <div className="flex gap-3 flex-wrap text-sm">
+        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-500"/> Scheduled</div>
+        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-500"/> Active</div>
+        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-gray-500"/> Completed</div>
+        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-red-500"/> Cancelled</div>
+      </div>
+
       {/* Meeting Details Dialog (fallback if parent didn't handle onMeetingSelect) */}
       <Dialog open={showMeetingDetails} onOpenChange={setShowMeetingDetails}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5" />
-              Meeting Details
-            </DialogTitle>
-            <DialogDescription>
-              {selectedMeeting &&
-                format(new Date(selectedMeeting.scheduled_time), "PPP p")}
-            </DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><CalendarIcon className="w-5 h-5"/> Meeting Details</DialogTitle>
+            <DialogDescription>{selectedMeeting && format(new Date(selectedMeeting.scheduled_time), "PPP p")}</DialogDescription>
           </DialogHeader>
 
           {selectedMeeting && (
             <div className="space-y-6">
-              {/* Meeting Info */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground">
-                    Lead
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    <span>{selectedMeeting.lead.name}</span>
-                  </div>
-                  {selectedMeeting.lead.company && (
-                    <div className="text-sm text-muted-foreground ml-6">
-                      {selectedMeeting.lead.company}
-                    </div>
-                  )}
+                  <div className="text-sm font-medium text-muted-foreground">Lead</div>
+                  <div className="flex items-center gap-2"><User className="w-4 h-4" /><span>{selectedMeeting.lead?.name ?? 'Unknown Lead'}</span></div>
+                  {selectedMeeting.lead?.company && <div className="text-sm text-muted-foreground ml-6">{selectedMeeting.lead.company}</div>}
                 </div>
 
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground">
-                    Status
-                  </div>
-                  <Badge
-                    variant={getStatusBadgeVariant(selectedMeeting.status)}
-                  >
-                    {selectedMeeting.status}
-                  </Badge>
+                  <div className="text-sm font-medium text-muted-foreground">Status</div>
+                  <Badge variant={getStatusBadgeVariant(selectedMeeting.status)}>{selectedMeeting.status}</Badge>
                 </div>
 
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground">
-                    Duration
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    <span>{selectedMeeting.duration_minutes} minutes</span>
-                  </div>
+                  <div className="text-sm font-medium text-muted-foreground">Duration</div>
+                  <div className="flex items-center gap-2"><Clock className="w-4 h-4"/>
+                  <span>{selectedMeeting.duration_minutes} minutes</span></div>
                 </div>
 
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground">
-                    Room ID
-                  </div>
-                  <div className="font-mono text-sm">
-                    {selectedMeeting.meeting_room_id}
-                  </div>
+                  <div className="text-sm font-medium text-muted-foreground">Room ID</div>
+                  <div className="font-mono text-sm">{selectedMeeting.meeting_room_id}</div>
                 </div>
               </div>
 
-              {/* Question Set */}
               {selectedMeeting.question_set && (
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground mb-2">
-                    Question Set
-                  </div>
-                  <div className="flex items-center gap-2 p-3 border rounded-md">
-                    <Bot className="w-4 h-4" />
-                    <span>{selectedMeeting.question_set.name}</span>
-                  </div>
+                  <div className="text-sm font-medium text-muted-foreground mb-2">Question Set</div>
+                  <div className="flex items-center gap-2 p-3 border rounded-md"><Bot className="w-4 h-4" /><span>{selectedMeeting.question_set.name}</span></div>
                 </div>
               )}
 
-              {/* Meeting Stats */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-3 border rounded-md">
-                  <div className="text-2xl font-bold">
-                    {selectedMeeting.participants_joined}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Participants
-                  </div>
-                </div>
-
-                <div className="text-center p-3 border rounded-md">
-                  <div className="text-2xl font-bold">
-                    {selectedMeeting.ai_joined_at ? "✓" : "—"}
-                  </div>
-                  <div className="text-sm text-muted-foreground">AI Joined</div>
-                </div>
-
-                <div className="text-center p-3 border rounded-md">
-                  <div className="text-2xl font-bold">
-                    {format(new Date(selectedMeeting.created_at), "MMM d")}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Scheduled</div>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="text-center p-3 border rounded-md"><div className="text-2xl font-bold">{selectedMeeting.participants_joined}</div><div className="text-sm text-muted-foreground">Participants</div></div>
+                <div className="text-center p-3 border rounded-md"><div className="text-2xl font-bold">{selectedMeeting.ai_joined_at ? "✓" : "—"}</div><div className="text-sm text-muted-foreground">AI Joined</div></div>
+                <div className="text-center p-3 border rounded-md"><div className="text-2xl font-bold">{format(new Date(selectedMeeting.created_at), "MMM d")}</div><div className="text-sm text-muted-foreground">Scheduled</div></div>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3 pt-4">
-                {selectedMeeting.status === "scheduled" && (
-                  <Button onClick={() => handleJoinMeeting(selectedMeeting)}>
-                    <Video className="w-4 h-4 mr-2" />
-                    Join Meeting
-                  </Button>
-                )}
+                {selectedMeeting.status === "scheduled" && (<Button onClick={() => handleJoinMeeting(selectedMeeting)}><Video className="w-4 h-4 mr-2"/>Join Meeting</Button>)}
 
-                {onEditMeeting && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      onEditMeeting(selectedMeeting);
-                      setShowMeetingDetails(false);
-                    }}
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit
-                  </Button>
-                )}
+                {onEditMeeting && (<Button variant="outline" onClick={() => { onEditMeeting(selectedMeeting); setShowMeetingDetails(false); }}><Edit className="w-4 h-4 mr-2"/>Edit</Button>)}
 
-                {onDeleteMeeting && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      onDeleteMeeting(selectedMeeting.id);
-                      setShowMeetingDetails(false);
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </Button>
-                )}
+                {onDeleteMeeting && (<Button variant="destructive" onClick={() => { onDeleteMeeting(selectedMeeting.id); setShowMeetingDetails(false); }}><Trash2 className="w-4 h-4 mr-2"/>Delete</Button>)}
               </div>
             </div>
           )}

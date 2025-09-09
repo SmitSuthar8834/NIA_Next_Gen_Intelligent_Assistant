@@ -7,6 +7,7 @@ from ..core.config import supabase
 from ..services.meeting_scheduler import meeting_scheduler_service
 from ..services.question_service import question_service
 from ..services.gemini import gemini_service
+from ..services.ai_meeting_orchestrator import ai_meeting_orchestrator
 from ..models.enhanced_schemas import (
     ScheduledMeeting, ScheduledMeetingCreate, ScheduledMeetingUpdate,
     MeetingStatus, MeetingWithParticipants, ScheduledMeetingListResponse
@@ -299,6 +300,39 @@ async def ai_join_meeting(
         raise
     except Exception as e:
         logger.error(f"Error joining AI to meeting: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+
+@router.post("/{meeting_id}/ai-force-join")
+async def ai_force_join_meeting(
+    meeting_id: str,
+    current_user=Depends(get_current_user)
+):
+    """Force AI to join the meeting immediately with voice."""
+    try:
+        meeting = await meeting_scheduler_service.get_scheduled_meeting(meeting_id, current_user.id)
+        if not meeting:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Meeting not found"
+            )
+        # Fetch lead data for context
+        lead_response = supabase.table("leads").select("*").eq("id", meeting.lead_id).eq("user_id", current_user.id).execute()
+        lead_data = lead_response.data[0] if lead_response.data else None
+
+        ok = await ai_meeting_orchestrator.join_scheduled_meeting(meeting_id, meeting.meeting_room_id, lead_data)
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to start AI participant"
+            )
+        return {"message": "AI is joining the meeting"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error forcing AI join: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
